@@ -91,6 +91,7 @@ const TagAttrs = types.model({
   label: types.optional(types.string, ''),
   value: types.maybeNull(types.string),
   rows: types.optional(types.string, '1'),
+  maxlength: types.optional(types.string, '-1'),
   showsubmitbutton: types.maybeNull(types.boolean),
   placeholder: types.maybeNull(types.string),
   maxsubmissions: types.maybeNull(types.string),
@@ -134,6 +135,10 @@ const Model = types.model({
     return self.regions.length;
   },
 
+  get maxLengthInt() {
+    return parseInt(self.maxlength);
+  },
+
   get showSubmit() {
     if (self.maxsubmissions) {
       const num = parseInt(self.maxsubmissions);
@@ -160,6 +165,14 @@ const Model = types.model({
     if (!Array.isArray(value)) value = [value];
     text = text.toLowerCase();
     return value.some(val => val.toLowerCase() === text);
+  },
+
+  bytesCount(text) {
+    let len = 0;
+    for (let i = 0; i < text.length; i++) {
+      (text[i].match(/[ -~]/)) ? len += 1 : len += 2;
+    }
+    return len;
   },
 })).actions(self => {
   let lastActiveElement = null;
@@ -192,6 +205,10 @@ const Model = types.model({
 
     uniqueModal() {
       InfoModal.warning('There is already an entry with that text. Please enter unique text.');
+    },
+
+    maxLengthModal() {
+      InfoModal.warning(`Input for the textarea "${self.name}" must be within ${self.maxlength} single-byte characters.`);
     },
 
     setResult(value) {
@@ -243,6 +260,10 @@ const Model = types.model({
     validateValue(text) {
       if (isFF(FF_LSDV_4659) && self.skipduplicates && self.hasResult(text)) {
         self.uniqueModal();
+        return false;
+      }
+      if (self.maxLengthInt > 0 && self.bytesCount(text) > self.maxLengthInt) {
+        self.maxLengthModal();
         return false;
       }
       return true;
